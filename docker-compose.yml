@@ -1,0 +1,120 @@
+# version: "2"  # https://github.com/nodejs/docker-node/blob/master/README.md#how-to-use-this-image
+# services:
+#   node:
+#     image: "node:latest"
+#     user: "node"
+#     working_dir: /home/node/app
+#     environment:
+#       - NODE_ENV=production
+#     volumes:
+#       - ./:/home/node/app
+#     expose:
+#       - "8080"
+    # command: "npm start"
+
+
+version: "3.9"
+services:
+  web:
+    stdin_open: true # https://stackoverflow.com/questions/36249744/interactive-shell-using-docker-compose
+    tty: true # https://zenn.dev/torkralle/articles/388ae878cb5f8b
+
+    ports:
+      - "8888:8000"
+    working_dir: /code
+    volumes:
+      - .:/code
+    # image: "node:latest"
+    # build: ./nodejs.Dockerfile
+    build:
+      context: .
+      dockerfile: ./nodejs/Dockerfile
+    command: >
+      bash -c "
+        npm install nodemon -g &&
+        nodemon nodejs/server.js"
+    #なぜかnpm installでnodemonをグローバルインストールできないのでここに
+
+
+  fastapi:
+    stdin_open: true # https://stackoverflow.com/questions/36249744/interactive-shell-using-docker-compose
+    tty: true # https://zenn.dev/torkralle/articles/388ae878cb5f8b
+    ports:
+      - "8000:8000"
+    # build: ./fastapi.Dockerfile
+    build:
+      context: .
+      dockerfile: ./fastapi/Dockerfile
+    
+    working_dir: /code
+    volumes: 
+      - ./fastapi:/code
+    command: >
+      uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+  pytorch:
+    stdin_open: true # https://stackoverflow.com/questions/36249744/interactive-shell-using-docker-compose
+    tty: true # https://zenn.dev/torkralle/articles/388ae878cb5f8b
+    ports:
+      - "7777:8000"
+    build:
+      context: .
+      dockerfile: ./pytorch/Dockerfile
+    working_dir: /code
+    volumes: 
+      - ./pytorch:/code
+    deploy: # https://docs.docker.jp/compose/gpu-support.html
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# npm install nodemon
+
+
+
+# docker compose up -d --no-deps fastapi  <==この場合はfastapiだけbuild&startされる
+
+# 使い方: docker-compose up [オプション] [--scale サービス=数...] [サービス...]
+
+# オプション:
+#   -d, --detach               デタッチド・モード: バックグラウンドでコンテナを実行し、新しいコンテナ名を表示
+#                               --abort-on-container-exit と同時に使えない
+#    --no-color                 白黒で画面に表示
+#    --quiet-pull              進捗情報を表示しない
+#    --no-deps                  リンクしたサービスを起動しない <===開始しないサービスを指定する
+#    --force-recreate           設定やイメージに変更がなくても、コンテナを再作成する
+#                              --no-recreate と同時に使えません
+#    --always-recreate-deps    依存関係のあるコンテナを再作成
+#                              --no-recreate と同時に使えません
+#    --no-recreate              コンテナが既に存在していれば、再作成しない
+#                               --force-recreate と同時に使えない
+#    --no-build                 イメージが見つからなくても構築しない
+#    --no-start                 作成してもサービスを起動しない
+#    --build                    コンテナを開始前にイメージを構築する
+#    --abort-on-container-exit  コンテナが１つでも停止したら全てのコンテナを停止
+#                               -d と同時に使えない
+#    --attach-dependencies      依存するコンテナにアタッチ
+#    -t, --timeout TIMEOUT      アタッチしている、あるいは既に実行中のコンテナを
+#                               停止する時のタイムアウト秒数を指定 (デフォルト:10 )
+#   -V, --renew-anon-volumes   以前のコンテナからデータを再利用せず、匿名ボリュームの再作成
+#    --remove-orphans           Compose ファイルで定義されていないサービス用のコンテナを削除
+#    --exit-code-from SERVICE   指定されたサービスコンテナの終了コードを返す
+#                               --abort-on-container-exit の指定を暗に含む
+#    --scale SERVICE=NUM        SERVICE のインスタンス数を NUM とする
+#                               Compose ファイルに scale の設定があっても上書きされる
+
+
+
+#build,contextの書き方
+# https://qiita.com/sam8helloworld/items/e7fffa9afc82aea68a7a
+
+
+# (echo -n '{"image": "'; base64 baboon.jpg; echo '"}') | 
+# curl -H "Content-Type: application/json" -d @-  localhost:8000/predict
+
+# echo {\"image\": \"$( base64 -w0 /code/baboon.jpg )\" }  | \
+# curl -X POST -H "Content-Type: application/json" -d @-  localhost:8000/predict
